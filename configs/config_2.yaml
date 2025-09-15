@@ -1,0 +1,59 @@
+# Dataset Configuration
+datasets:
+  ice_velocity_u:
+    name: 'ivu'
+    root: '/mnt/experiment-2/AI4IS/data/gtiff_200m/ice_velocity_u/'
+    class: 'IceVelocity_u'
+    filename_glob: 'ice_velocity_u_*.tif'
+    is_image: true
+    bands: ['1']
+
+  ice_velocity_v:
+    name: 'ivv'
+    root: '/mnt/experiment-2/AI4IS/data/gtiff_200m/ice_velocity_v/'
+    class: 'IceVelocity_v'
+    filename_glob: 'ice_velocity_v_*.tif'
+    is_image: true
+    bands: ['1']
+
+  calving:
+    name: 'calving'
+    root: '/mnt/experiment-2/AI4IS/data/calving/'
+    class: 'Calving'
+    filename_glob: '*.tif'
+    is_image: false
+    bands: ['1']
+
+# Model Configuration
+model:
+  type: 'unet'  # or 'loopunet' or whatever model defined or imported in model_wrapper
+  backbone: 'resnet50'
+  weights: 'imagenet'  # or None
+  in_channels: 2
+  num_classes: 1
+  learning_rate: 0.001
+
+# Training Configuration
+training:
+  batch_size: 10
+  patch_size: [500, 500]
+  samples_per_epoch: 100
+  val_samples: 10
+  num_workers: 63
+  max_epochs: 5
+  split_ratios: [0.7, 0.2, 0.1]
+  seed: 42
+
+# Logging Configuration
+logging:
+  tb_log_dir: '.'
+  experiment_name: 'torchgeo_experiment'
+  run_name: # 'whatever'
+  train_log_every_n_steps: 1
+  val_log_every_n_steps:  # Leaving this empty (None) makes the validation logging happen only at the end of the epoch
+  model_log_every_n_epochs: 1
+  save_top_k: 1
+  monitor: 'val_loss'
+  patience: 5
+  description: # 'Describe your experiment here'
+  tags: #{'tag 1': 1, 'tag 2': 2}
