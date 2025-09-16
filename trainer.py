@@ -2,10 +2,10 @@ import argparse
 import yaml
 import lightning as pl
 from models.model_wrapper import ModelFactory
-from lightning_wrapper import GenericSegmentationTask
+from lightning_wrapper import GenericTask
 from lightning.pytorch.callbacks import ModelCheckpoint, EarlyStopping
 from lightning.pytorch.loggers import TensorBoardLogger
-from datasets import IceVelocity_u, IceVelocity_v, Calving
+from datasets import DATASET_CLASSES
 from custom_geo_data_module import CustomGeoDataModule
 from lightning.pytorch.loggers import MLFlowLogger
 from tools import update_config
@@ -40,13 +40,37 @@ def main():
 
     # Initialize model
     model = ModelFactory.create_model(config)
-    task = GenericSegmentationTask(model, config)
+    task = GenericTask(model, config)
 
-    # Setup datasets
-    ivu = IceVelocity_u(config['datasets']['ice_velocity_u']['root'])
-    ivv = IceVelocity_v(config['datasets']['ice_velocity_v']['root'])
-    calving = Calving(config['datasets']['calving']['root'])
-    combined_dataset = (ivu & ivv) & calving
+    # # Setup datasets
+    # ivu = Dataset_1(config['datasets']['dataset_1']['root'])
+    # ivv = Dataset_2(config['datasets']['dataset_2']['root'])
+    # calving = Mask_dataset(config['datasets']['calving']['root'])
+    # combined_dataset = (ivu & ivv) & calving
+
+    # # Dynamically instantiate datasets based on config['datasets']
+    # dataset_instances = []
+
+    # for key, dataset_config in config['datasets'].items():
+    #     # Infer dataset class from key or include 'type' in config
+    #     dataset_cls = DATASET_CLASSES[dataset_config['class']]
+    #     dataset_instance = dataset_cls(dataset_config['root'])
+    #     dataset_instances.append(dataset_instance)
+
+    # # Combine all datasets using the TorchGeo style '&' operator
+    # combined_dataset = reduce(lambda x, y: x & y, dataset_instances)
+
+    dataset_objs = {}
+    for key, dataset_config in config['datasets'].items():
+        if key == 'combination':
+            continue
+        dataset_cls = DATASET_CLASSES[dataset_config['class']]
+        # Pass all config values as kwargs except 'class'
+        kwargs = {k: v for k, v in dataset_config.items() if k not in ['class']}
+        dataset_objs[dataset_config['name']] = dataset_cls(**kwargs)
+
+    comb_str = config['datasets']['combination']  # e.g., "ivv & ivu & calving"
+    combined_dataset = eval(comb_str, {}, dataset_objs)
 
     # Create datamodule
     datamodule = CustomGeoDataModule(

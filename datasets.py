@@ -2,6 +2,9 @@ import torch
 import matplotlib.pyplot as plt
 from torchgeo.datasets import RasterDataset
 
+# Here you can define whatever datasets you need (preferrably inheriting from Torchgeo's RasterDataset or VectorDataset)
+# In the style of the below example datasets (Datasets1 and 2 and Mask_dataset which is for labels).
+# Then don't forget to add your newly created dataset to the DATASET_CLASSES dictionary below so it can be used by the trainer. 
 
 def process_sample(self, sample):
     # Process image and mask if they exist
@@ -24,20 +27,17 @@ def process_sample(self, sample):
             processed[key] = sample[key]
     return processed
 
-class IceVelocity_u(RasterDataset):
-    def __init__(self, root: str, name: str = "ice_velocity_u", **kwargs):
+class Dataset_1(RasterDataset):
+    def __init__(self, root: str, name: str="dataset_1", filename_glob: str='dataset_1*.tif', is_image=True, bands=('1'), **kwargs):
         super().__init__(root, **kwargs)
         self.name = name
-        self.filename_glob = 'ice_velocity_u_*.tif'
-        self.is_image = True
-        self.all_bands = ('1')
+        self.filename_glob = filename_glob
+        self.is_image = is_image
+        self.all_bands = bands
     
-    # filename_glob = 'ice_velocity_u_*.tif'
     # # filename_regex = r'^.{6}_(?P<date>\d{8}T\d{6})_(?P<band>B0[\d])'
     # # date_format = '%Y%m%dT%H%M%S'
-    # is_image = True
     # # separate_files = True
-    # all_bands = ('1')
     # # rgb_bands = ('B04', 'B03', 'B02')
 
     def __getitem__(self, index):
@@ -65,20 +65,17 @@ class IceVelocity_u(RasterDataset):
 
         return fig
     
-class IceVelocity_v(RasterDataset):
-    def __init__(self, root: str, name: str = "ice_velocity_v", **kwargs):
+class Dataset_2(RasterDataset):
+    def __init__(self, root: str, name: str="dataset_2", filename_glob: str='dataset_2*.tif', is_image=True, bands=('1'), **kwargs):
         super().__init__(root, **kwargs)
         self.name = name
-        self.filename_glob = 'ice_velocity_v_*.tif'
-        self.is_image = True
-        self.all_bands = ('1')
+        self.filename_glob = filename_glob
+        self.is_image = is_image
+        self.all_bands = bands
 
-    # filename_glob = 'ice_velocity_v_*.tif'
     # # filename_regex = r'^.{6}_(?P<date>\d{8}T\d{6})_(?P<band>B0[\d])'
     # # date_format = '%Y%m%dT%H%M%S'
-    # is_image = True
     # # separate_files = True
-    # all_bands = ('1')
     # # rgb_bands = ('B04', 'B03', 'B02')
 
     def __getitem__(self, index):
@@ -87,20 +84,17 @@ class IceVelocity_v(RasterDataset):
         processed = process_sample(self, sample)
         return processed
 
-class Calving(RasterDataset):
-    def __init__(self, root: str, name: str = "calving", **kwargs):
+class Mask_dataset(RasterDataset):
+    def __init__(self, root: str, name: str="mask_dataset", filename_glob: str='*.tif', is_image=False, bands=('1'), **kwargs):
         super().__init__(root, **kwargs)
         self.name = name
-        self.filename_glob = '*.tif'
-        self.is_image = False
-        self.all_bands = ('1')
+        self.filename_glob = filename_glob
+        self.is_image = is_image
+        self.all_bands = bands
     
-    # filename_glob = '*.tif'
     # # filename_regex = r'^.{6}_(?P<date>\d{8}T\d{6})_(?P<band>B0[\d])'
     # # date_format = '%Y%m%dT%H%M%S'
-    # is_image = False
     # # separate_files = True
-    # all_bands = ('1')
     # # rgb_bands = ('B04', 'B03', 'B02')
 
     def __getitem__(self, index):
@@ -108,3 +102,10 @@ class Calving(RasterDataset):
         
         processed = process_sample(self, sample)
         return processed
+
+DATASET_CLASSES = {
+    "Dataset_1": Dataset_1,
+    "Dataset_2": Dataset_2,
+    "Mask_dataset": Mask_dataset,
+    # Add new key-class pairs
+}

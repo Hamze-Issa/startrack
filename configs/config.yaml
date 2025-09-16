@@ -1,29 +1,32 @@
 
 # Dataset Configuration
 datasets:
-  ice_velocity_u:
+  dataset_1:
     name: 'ivu'
     root: '/mnt/experiment-2/AI4IS/data/gtiff_200m/ice_velocity_u/'
-    class: 'IceVelocity_u'
+    class: 'Dataset_1'
     filename_glob: 'ice_velocity_u_*.tif'
     is_image: true
     bands: ['1']
 
-  ice_velocity_v:
+  dataset_2:
     name: 'ivv'
     root: '/mnt/experiment-2/AI4IS/data/gtiff_200m/ice_velocity_v/'
-    class: 'IceVelocity_v'
+    class: 'Dataset_2'
     filename_glob: 'ice_velocity_v_*.tif'
     is_image: true
     bands: ['1']
 
-  calving:
+  mask_dataset:
     name: 'calving'
     root: '/mnt/experiment-2/AI4IS/data/calving/'
-    class: 'Calving'
+    class: 'Mask_dataset'
     filename_glob: '*.tif'
     is_image: false
     bands: ['1']
+
+  combination:
+    ivv & ivu & calving
 
 # Model Configuration
 model:
