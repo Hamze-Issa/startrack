@@ -1,5 +1,6 @@
 import torch.nn as nn
 from torch import isnan
+from segmentation_models_pytorch.losses import DiceLoss
 
 class MaskedBCELoss(nn.Module):
     def __init__(self, ignore_nans=True):
@@ -17,3 +18,10 @@ class MaskedBCELoss(nn.Module):
             loss = loss * mask.float()
             
         return loss.mean()  # Only average valid pixels
+    
+LOSS_FUNCTIONS = {
+    'bce': nn.BCEWithLogitsLoss,
+    'dice': DiceLoss,
+    # Add custom losses
+    'masked_bce': MaskedBCELoss,
+}

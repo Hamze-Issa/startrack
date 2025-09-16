@@ -42,24 +42,6 @@ def main():
     model = ModelFactory.create_model(config)
     task = GenericTask(model, config)
 
-    # # Setup datasets
-    # ivu = Dataset_1(config['datasets']['dataset_1']['root'])
-    # ivv = Dataset_2(config['datasets']['dataset_2']['root'])
-    # calving = Mask_dataset(config['datasets']['calving']['root'])
-    # combined_dataset = (ivu & ivv) & calving
-
-    # # Dynamically instantiate datasets based on config['datasets']
-    # dataset_instances = []
-
-    # for key, dataset_config in config['datasets'].items():
-    #     # Infer dataset class from key or include 'type' in config
-    #     dataset_cls = DATASET_CLASSES[dataset_config['class']]
-    #     dataset_instance = dataset_cls(dataset_config['root'])
-    #     dataset_instances.append(dataset_instance)
-
-    # # Combine all datasets using the TorchGeo style '&' operator
-    # combined_dataset = reduce(lambda x, y: x & y, dataset_instances)
-
     dataset_objs = {}
     for key, dataset_config in config['datasets'].items():
         if key == 'combination':
@@ -69,7 +51,7 @@ def main():
         kwargs = {k: v for k, v in dataset_config.items() if k not in ['class']}
         dataset_objs[dataset_config['name']] = dataset_cls(**kwargs)
 
-    comb_str = config['datasets']['combination']  # e.g., "ivv & ivu & calving"
+    comb_str = config['datasets']['combination']
     combined_dataset = eval(comb_str, {}, dataset_objs)
 
     # Create datamodule
@@ -113,7 +95,7 @@ def main():
                 patience=config['logging']['patience'],
             )
         ],
-        logger=[mlf_logger, tb_logger],
+        logger=[mlf_logger], # you can add also the tensorboard logger (tb_logger) to this list if you want
         strategy="auto",
         accelerator="auto",
         use_distributed_sampler=False,

@@ -1,28 +1,32 @@
+
 # Dataset Configuration
 datasets:
-  ice_velocity_u:
+  dataset_1:
     name: 'ivu'
     root: '/mnt/experiment-2/AI4IS/data/gtiff_200m/ice_velocity_u/'
-    class: 'IceVelocity_u'
+    class: 'Dataset_1'
     filename_glob: 'ice_velocity_u_*.tif'
     is_image: true
     bands: ['1']
 
-  ice_velocity_v:
+  dataset_2:
     name: 'ivv'
     root: '/mnt/experiment-2/AI4IS/data/gtiff_200m/ice_velocity_v/'
-    class: 'IceVelocity_v'
+    class: 'Dataset_2'
     filename_glob: 'ice_velocity_v_*.tif'
     is_image: true
     bands: ['1']
 
-  calving:
+  mask_dataset:
     name: 'calving'
     root: '/mnt/experiment-2/AI4IS/data/calving/'
-    class: 'Calving'
+    class: 'Mask_dataset'
     filename_glob: '*.tif'
     is_image: false
     bands: ['1']
+
+  combination:
+    ivv & ivu & calving
 
 # Model Configuration
 model:
@@ -32,6 +36,22 @@ model:
   in_channels: 2
   num_classes: 1
   learning_rate: 0.001
+  checkpoint_path: /mnt/experiment-3/torchgeo/968377319304808851/42163d8d88c642b3a1e67454c76f3eeb/checkpoints/epoch=1-step=200.ckpt # can be None if you don't want to use a checkpoint
+
+loss:
+    name: 'dice'
+    params:
+      mode: 'binary'
+  
+metrics:
+  iou:
+    name: 'iou'
+    params:
+      task: 'binary'
+  accuracy:
+    name: 'accuracy'
+    params:
+      threshold: 0.5
 
 # Training Configuration
 training:
@@ -47,7 +67,7 @@ training:
 # Logging Configuration
 logging:
   tb_log_dir: '.'
-  experiment_name: 'torchgeo_experiment'
+  experiment_name: 'startrack_experiment'
   run_name: # 'whatever'
   train_log_every_n_steps: 1
   val_log_every_n_steps:  # Leaving this empty (None) makes the validation logging happen only at the end of the epoch
@@ -57,3 +77,17 @@ logging:
   patience: 5
   description: # 'Describe your experiment here'
   tags: #{'tag 1': 1, 'tag 2': 2}
+
+# Testing Configuration -> used only for tester.py (inference)
+testing:
+  checkpoint_path: /mnt/experiment-3/torchgeo/968377319304808851/42163d8d88c642b3a1e67454c76f3eeb/checkpoints/epoch=1-step=200.ckpt
+  batch_size: 1
+  patch_size: [500, 500]
+  num_samples: 10  # limit number of samples for quick inference
+  num_workers: 63
+  save_predictions: True
+  output_dir: "./inference_outputs"
+  log_every_n_steps: 10
+  accelerator: "auto"
+  strategy: "auto"
+  seed: 42

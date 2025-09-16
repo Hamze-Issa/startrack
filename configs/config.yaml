@@ -36,8 +36,25 @@ model:
   in_channels: 2
   num_classes: 1
   learning_rate: 0.001
-  loss: bce # add whatever losses and metrics you want to the lightning_wrapper
   checkpoint_path: /mnt/experiment-3/torchgeo/968377319304808851/42163d8d88c642b3a1e67454c76f3eeb/checkpoints/epoch=1-step=200.ckpt # can be None if you don't want to use a checkpoint
+
+# Loss function(s)
+loss:
+    name: 'dice'
+    params:
+      mode: 'binary'
+
+# Metrics
+metrics:
+  iou:
+    name: 'iou'
+    params:
+      task: 'binary'
+  accuracy:
+    name: 'accuracy'
+    params:
+      task: 'binary'
+      threshold: 0.5
 
 # Training Configuration
 training:
@@ -45,7 +62,7 @@ training:
   patch_size: [500, 500]
   samples_per_epoch: 100
   val_samples: 10
-  num_workers: 63
+  num_workers: 10
   max_epochs: 5
   split_ratios: [0.7, 0.2, 0.1]
   seed: 42
@@ -53,7 +70,7 @@ training:
 # Logging Configuration
 logging:
   tb_log_dir: '.'
-  experiment_name: 'torchgeo_experiment'
+  experiment_name: 'startrack_experiment'
   run_name: # 'whatever'
   train_log_every_n_steps: 1
   val_log_every_n_steps:  # Leaving this empty (None) makes the validation logging happen only at the end of the epoch
@@ -70,7 +87,7 @@ testing:
   batch_size: 1
   patch_size: [500, 500]
   num_samples: 10  # limit number of samples for quick inference
-  num_workers: 63
+  num_workers: 10
   save_predictions: True
   output_dir: "./inference_outputs"
   log_every_n_steps: 10

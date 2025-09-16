@@ -1,53 +1,27 @@
 import lightning as pl
-import torch.nn as nn
 import torch.optim as optim
-from torchmetrics import MetricCollection, JaccardIndex
-from loss_functions import MaskedBCELoss
+from torchmetrics import MetricCollection
+from loss_functions import LOSS_FUNCTIONS
+from metrics import METRIC_FUNCTIONS
 import matplotlib.pyplot as plt
 from plotting import create_multichannel_figure
-import os
-import rasterio
-
-def save_prediction_with_metadata(preds, metadata, batch_idx, output_dir):
-    os.makedirs(output_dir, exist_ok=True)
-    for i, pred in enumerate(preds):
-        profile = {
-            'driver': 'GTiff',
-            'height': pred.shape[-2],
-            'width': pred.shape[-1],
-            'count': pred.shape[0] if pred.ndim == 3 else 1,
-            'dtype': pred.dtype,
-            'crs': metadata.get('crs'),
-            'transform': metadata.get('affine'),
-        }
-        print(profile)
-        out_path = os.path.join(output_dir, f"prediction_{batch_idx}_{i}.tif")
-        with rasterio.open(out_path, 'w', **profile) as dst:
-            if pred.ndim == 2:
-                dst.write(pred, 1)
-            else:
-                dst.write(pred)
-        print(f"Saved {out_path}")
 
 class GenericTask(pl.LightningModule):
     def __init__(self, model, config):
         super().__init__()
         self.model = model
         self.config = config
-        self.loss_fn = self._get_loss_fn()
-        self.metrics = MetricCollection({
-            'iou': JaccardIndex(task='binary'),
-            # Add other metrics as needed
-        })
+        # Loss
+        loss_config = config['loss']
+        loss_cls = LOSS_FUNCTIONS[loss_config['name']]
+        self.loss_fn = loss_cls(**loss_config.get('params', {}))
 
-    def _get_loss_fn(self):
-        loss_type = self.config['model'].get('loss', 'bce').lower()
-        if loss_type == 'bce':
-            return MaskedBCELoss() #nn.BCEWithLogitsLoss() # add whatever loss you want
-        elif loss_type == 'dice':
-            from segmentation_models_pytorch.losses import DiceLoss
-            return DiceLoss(mode='binary')
-        raise ValueError(f"Unknown loss: {loss_type}")
+        # Metrics
+        self.metrics = {}
+        for metric_key, metric_info in config['metrics'].items():
+            metric_cls = METRIC_FUNCTIONS[metric_info['name']]
+            self.metrics[metric_key] = metric_cls(**metric_info.get('params', {}))
+        self.metrics = MetricCollection(self.metrics)
 
     def log_figure(self, input, mask, prediction, batch_idx, filename, input_channel_names=None, mask_channel_names=None, pred_channel_names=None, cmap='Blues'):
         ##### Logging images/figures: Logging imags in Mlflow is having troubles appearing in the main grid for now due to this issue https://github.com/mlflow/mlflow/issues/15760
@@ -125,15 +99,7 @@ class GenericTask(pl.LightningModule):
         # preds = y_hat.argmax(dim=1) # For multiclass
 
         metadata = {key: batch[key] for key in ['crs', 'affine'] if key in batch}
-        # print('batch________________',batch)
-        # print('metadata_______________', metadata)
-        
 
-        
-        # save results
-        # if self.config['testing'].get('save_predictions', True):
-        #     output_dir = self.config['testing'].get('output_dir', './inference_outputs')
-        #     save_prediction_with_metadata(preds, metadata, batch_idx, output_dir)
         return {
             "prediction": preds.detach().cpu().numpy(),
             "metadata": metadata,

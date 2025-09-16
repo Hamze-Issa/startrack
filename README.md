@@ -87,11 +87,11 @@ CUDA_VISIBLE_DEVICES=0 python trainer.py --config ./configs/<config_name>.yaml -
 
 Startrack uses MLFlow and Tensorboard to track experiments and log and monitor metrics and values. 
 
-To see tracked experiments with MLFlow, run the mlflow server using:
+To see tracked experiments with MLFlow, run the mlflow server (from inside the startrack directory) using:
 
 ```
 mlflow ui
 ```
 
-Then go to http://127.0.0.1:5000/ to see the automatically logged experiments and metrics.
+Then go to http://127.0.0.1:5000/ to see the automatically logged experiments and metrics :)
 
