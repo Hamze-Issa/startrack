@@ -1,5 +1,3 @@
-
-
 def update_config(cfg, keys, value):
     """Recursively update nested dictionary cfg with keys list and set to value."""
     d = cfg

@@ -1,7 +1,7 @@
 # STAR_track
 ![image info](images/logo.png)
 ## Overview
-**STAR_track** (S&T Automated Running & Tracking) is an automated, highly-configurable framework for deep learning applied to geospatial and Earth observation data. It enables fast prototyping, training, evaluation, and large-scale inference of segmentation models on satellite and remote sensing imagery. The framework builds on PyTorch Lightning, TorchGeo, and MLflow, providing powerful experiment tracking, reproducibility, and spatially-aware data handling.
+**STAR_track** (S&T Automated Running & Tracking) is an automated, highly-configurable framework for deep learning applied to geospatial and Earth observation data. It enables fast prototyping, training, evaluation, and large-scale inference of ML models on satellite and remote sensing imagery. The framework builds on PyTorch Lightning, TorchGeo, and MLflow, providing powerful experiment tracking, reproducibility, and spatially-aware data handling.
 
 Key features include:
 
