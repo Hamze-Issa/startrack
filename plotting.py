@@ -27,7 +27,7 @@ def create_multichannel_figure(
     input_channel_names=None,  # list of input channel names, length C
     mask_channel_names=None,   # list of mask channel names, length C2
     pred_channel_names=None,   # list of pred channel names, length C3
-    cmap='Blues'               # You can change colormap (e.g. ICE_CMAP)
+    cmap='viridis'               # You can change colormap (e.g. ICE_CMAP)
 ):
     # Expand single-channel arrays to (1, H, W)
     if input_data.ndim == 2:

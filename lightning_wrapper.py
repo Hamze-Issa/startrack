@@ -1,3 +1,4 @@
+import torch
 import lightning as pl
 import torch.optim as optim
 from torchmetrics import MetricCollection
@@ -5,6 +6,7 @@ from loss_functions import LOSS_FUNCTIONS
 from metrics import METRIC_FUNCTIONS
 import matplotlib.pyplot as plt
 from plotting import create_multichannel_figure
+from tools import log_tensor_stats, get_joint_valid_mask
 
 class GenericTask(pl.LightningModule):
     def __init__(self, model, config):
@@ -23,7 +25,7 @@ class GenericTask(pl.LightningModule):
             self.metrics[metric_key] = metric_cls(**metric_info.get('params', {}))
         self.metrics = MetricCollection(self.metrics)
 
-    def log_figure(self, input, mask, prediction, batch_idx, filename, input_channel_names=None, mask_channel_names=None, pred_channel_names=None, cmap='Blues'):
+    def log_figure(self, input, mask, prediction, batch_idx, filename, input_channel_names=None, mask_channel_names=None, pred_channel_names=None, cmap='viridis'):
         ##### Logging images/figures: Logging imags in Mlflow is having troubles appearing in the main grid for now due to this issue https://github.com/mlflow/mlflow/issues/15760
         ##### So as of the time this code is written, you can only view logged images in the artifacts tab, but maybe they will fix it soon hopefully.
         fig = create_multichannel_figure(input, mask, prediction, input_channel_names, mask_channel_names, pred_channel_names, cmap)
@@ -40,15 +42,29 @@ class GenericTask(pl.LightningModule):
     def _shared_step(self, batch, prefix, batch_idx):
         ##### Loss and Metric Calculation #####
         x, y = batch["image"], batch["mask"]
-        nan_mask = batch.get("nan_mask", None)
+        x_valid = batch.get("sst_image_valid", None)
+        y_hat_valid = batch.get("chl_mask_valid", None)
         
         # Forward pass
         y_hat = self(x)  # Shape: [B, C, H, W]
-        
-        # Mask out NaNs
-        if nan_mask is not None:
-            y_hat = y_hat[nan_mask.bool()]
-            y = y[nan_mask.bool()]
+
+        # Mask y and y_hat with the joint masks from all the datasets
+        joint_valid = get_joint_valid_mask(batch)
+        if joint_valid is not None:
+            y_hat_masked = torch.where(joint_valid, y_hat, torch.tensor(0.0, device=y_hat.device, dtype=y_hat.dtype))
+            y_masked = torch.where(joint_valid, y, torch.tensor(0.0, device=y.device, dtype=y.dtype))
+        else:
+            y_hat_masked = y_hat
+            y_masked = y
+
+        # Print statistics
+        log_tensor_stats("x", x)
+        log_tensor_stats("y", y)
+        log_tensor_stats("y_hat", y_hat)
+        log_tensor_stats("x_valid", x_valid)
+        log_tensor_stats("y_hat_valid", y_hat_valid)
+        log_tensor_stats("y_hat_masked", y_hat_masked)
+        log_tensor_stats("y_masked", y_masked)
         
         # Calculate loss
         loss = self.loss_fn(y_hat, y.float())
