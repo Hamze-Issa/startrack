@@ -42,8 +42,6 @@ class GenericTask(pl.LightningModule):
     def _shared_step(self, batch, prefix, batch_idx):
         ##### Loss and Metric Calculation #####
         x, y = batch["image"], batch["mask"]
-        x_valid = batch.get("sst_image_valid", None)
-        y_hat_valid = batch.get("chl_mask_valid", None)
         
         # Forward pass
         y_hat = self(x)  # Shape: [B, C, H, W]
@@ -57,21 +55,19 @@ class GenericTask(pl.LightningModule):
             y_hat_masked = y_hat
             y_masked = y
 
-        # Print statistics
-        log_tensor_stats("x", x)
-        log_tensor_stats("y", y)
-        log_tensor_stats("y_hat", y_hat)
-        log_tensor_stats("x_valid", x_valid)
-        log_tensor_stats("y_hat_valid", y_hat_valid)
-        log_tensor_stats("y_hat_masked", y_hat_masked)
-        log_tensor_stats("y_masked", y_masked)
+        # # Print statistics
+        # log_tensor_stats("x", x)
+        # log_tensor_stats("y", y)
+        # log_tensor_stats("y_hat", y_hat)
+        # log_tensor_stats("y_hat_masked", y_hat_masked)
+        # log_tensor_stats("y_masked", y_masked)
         
         # Calculate loss
-        loss = self.loss_fn(y_hat, y.float())
+        loss = self.loss_fn(y_hat_masked, y_masked.float())
 
         # Calculate metrics
-        preds = y_hat.sigmoid()
-        metrics = self.metrics(preds, y.int())
+        preds = y_hat_masked.sigmoid()
+        metrics = self.metrics(preds, y_masked.int())
         
 
         ##### Logging parameters and images #####
