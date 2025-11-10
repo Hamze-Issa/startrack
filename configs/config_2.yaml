@@ -53,6 +53,17 @@ metrics:
     params:
       threshold: 0.5
 
+augmentations: # These are applied to all tensors equally (all inputs and masks), if you want to change this behaviour, define data_keys in AugmentationSequential in augmentations.py
+  - name: RandomHorizontalFlip
+    params:
+      p: 0.5
+  - name: RandomVerticalFlip
+    params:
+      p: 0.5
+  - name: RandomRotation
+    params:
+      degrees: 10
+
 # Training Configuration
 training:
   batch_size: 10
