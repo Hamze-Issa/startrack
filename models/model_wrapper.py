@@ -1,7 +1,7 @@
 import torch
 import torch.nn as nn
 from segmentation_models_pytorch import Unet
-from models.loopunet import LoopUnet
+from models.resnet import ResNetRegression
 
 class ModelFactory:
     @staticmethod
@@ -9,19 +9,19 @@ class ModelFactory:
         model_type = config['model']['type'].lower()
         
         # Instantiate model without weights first
-        if model_type == 'loopunet':
-            model = LoopUnet(
-                in_channels=config['model']['in_channels'],
-                num_classes=config['model'].get('num_classes', 1),
-                encoder=config['model'].get('backbone', 'resnet50'),
-                weights=config['model'].get('weights', None)
-            )
-        elif model_type == 'unet':
+        if model_type == 'unet':
             model = Unet(
                 encoder_name=config['model']['backbone'],
                 encoder_weights=config['model'].get('weights', None),  # for pretrained backbone only
                 in_channels=config['model']['in_channels'],
                 classes=config['model'].get('num_classes', 1),
+                decoder_interpolation='bicubic'
+            )
+        elif model_type == 'resnet':
+            model = ResNetRegression(
+                num_outputs=config['model']['num_outputs'],
+                resnet_version=config['model']['resnet_version'],
+                weights=config['model']['weights'],
             )
         else:
             raise ValueError(f"Unknown model type: {model_type}")

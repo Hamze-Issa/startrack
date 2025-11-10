@@ -4,6 +4,7 @@ import torch
 from typing import Optional, Tuple
 from torch.utils.data import DataLoader
 from torchgeo.datasets.splits import random_bbox_assignment
+from torchgeo.datasets import stack_samples
 import typing
 
 class CustomGeoDataModule(GeoDataModule):
@@ -52,8 +53,8 @@ class CustomGeoDataModule(GeoDataModule):
         self.test_sampler = None
 
     def _collate_fn(self, samples):
-        from torchgeo.datasets import stack_samples
         return stack_samples(samples)
+
 
     def setup(self, stage: str) -> None:
         """Set up datasets and samplers."""        
@@ -73,6 +74,9 @@ class CustomGeoDataModule(GeoDataModule):
                 self.batch_size,
                 self.length
             )
+            print("Training dataset length:", len(self.train_dataset))
+            print("Training sampler length:", len(self.train_batch_sampler))
+
         if stage in ["fit", "validate"]:
             self.val_sampler = RandomGeoSampler( # Either use that one for random samples or the GridGeoSampler to cover the whole space but will take a lot more time
                 self.val_dataset,
@@ -90,13 +94,13 @@ class CustomGeoDataModule(GeoDataModule):
             self.test_sampler = GridGeoSampler(
                 self.test_dataset,
                 self.patch_size,
-                self.patch_size
+                int(self.patch_size[0])/2 #Adding Overlap on testing
             )
         if stage in ["predict"]:
             self.predict_sampler = GridGeoSampler(
                 self.test_dataset,
                 self.patch_size,
-                self.patch_size
+                int(self.patch_size[0])/2 #Adding Overlap on testing
             )
 
     def train_dataloader(self) -> DataLoader:
