@@ -66,8 +66,7 @@ class Dataset_1(RasterDataset):
         
 
         processed = process_sample(self, sample, self.nodata_value, self.replace_value)
-        processed_time_encoded = encode_time_to_sample(processed, index)
-        return processed_time_encoded
+        return processed
 
     def plot(self, sample):
         image = sample['image'][0]
