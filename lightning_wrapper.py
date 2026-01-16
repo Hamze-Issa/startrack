@@ -61,8 +61,8 @@ class GenericTask(pl.LightningModule):
 
         ##### Loss and Metric Calculation #####
         x, y = batch["image"], batch["mask"]
-        x_valid = batch.get("image_sst_valid", None)
-        y_valid = batch.get("mask_chl_valid", None)
+        x_valid = next((v for k, v in batch.items() if k.startswith('image') and k.endswith('_valid') and isinstance(v, torch.Tensor)), None)
+        y_valid = next((v for k, v in batch.items() if k.startswith('mask') and k.endswith('_valid') and isinstance(v, torch.Tensor)), None)
         
         # Mask x and y with the joint masks from all the datasets
         joint_valid = get_joint_valid_mask(batch)

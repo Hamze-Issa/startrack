@@ -1,0 +1,102 @@
+
+# Dataset Configuration
+datasets:
+  dataset_1:
+    name: 'sage'
+    root: '/mnt/experiment-3/SAGE/data/sample/'
+    class: 'Dataset_nc'
+    filename_glob: '*.nc'
+    filename_regex: str = r'(?P<start>\d{8})_N\.nc'
+    date_format: str = "%Y%m%d"
+    crs: "EPSG:6931"
+    res: [25104.602510460252, 25104.602510460252] # had to add the resolution manually in this case because this dataset has a negative y resolution (for that particular crs) which torchgeo doesn't handle well, so added the same resolution but positive to minimize changes in the torchgeo source
+    is_image: true
+    bands: ['CIS_total_ice_conc']
+
+  mask_dataset:
+    name: 'sage_labels'
+    root: '/mnt/experiment-3/SAGE/data/sample/'
+    class: 'Mask_dataset_nc'
+    filename_glob: '*.nc'
+    filename_regex: str = r'(?P<start>\d{8})_N\.nc'
+    date_format: str = "%Y%m%d"
+    crs: "EPSG:6931"
+    res: [25104.602510460252, 25104.602510460252]
+    is_image: false
+    bands: ['CIS_total_ice_conc']
+
+  combination:
+    sage & sage_labels
+
+# Model Configuration
+model:
+  type: 'unet'  # or 'loopunet' or whatever model defined or imported in model_wrapper
+  backbone: 'resnet50'
+  weights: 'imagenet'  # or None
+  in_channels: 1
+  num_classes: 1
+  learning_rate: 0.001
+  # checkpoint_path: None # can be removed if you don't want to use a checkpoint
+
+# Loss function(s)
+loss:
+    name: 'masked_focal_loss'
+
+
+# Metrics
+metrics:
+  accuracy:
+    name: 'accuracy'
+    params:
+      task: 'binary'
+      threshold: 0.5
+
+augmentations: # These are applied to all tensors equally (all inputs and masks), if you want to change this behaviour, define data_keys in AugmentationSequential in augmentations.py
+  - name: RandomHorizontalFlip
+    params:
+      p: 0.5
+  - name: RandomVerticalFlip
+    params:
+      p: 0.5
+  - name: RandomRotation
+    params:
+      degrees: 10
+
+# Training Configuration
+training:
+  batch_size: 10
+  patch_size: [100, 100]
+  samples_per_epoch: 10
+  val_samples: 10
+  num_workers: 10
+  max_epochs: 5
+  split_ratios: [0.7, 0.2, 0.1]
+  seed: 42
+
+# Logging Configuration
+logging:
+  tb_log_dir: '.'
+  experiment_name: 'sage_experiment'
+  run_name: # 'whatever'
+  train_log_every_n_steps: 1
+  val_log_every_n_steps:  # Leaving this empty (None) makes the validation logging happen only at the end of the epoch
+  model_log_every_n_epochs: 1
+  save_top_k: 1
+  monitor: 'val_loss'
+  patience: 5
+  description: 'sage exp init'
+  tags: #{'tag 1': 1, 'tag 2': 2}
+
+# Testing Configuration -> used only for tester.py (inference)
+testing:
+  checkpoint_path: /mnt/experiment-3/torchgeo/968377319304808851/42163d8d88c642b3a1e67454c76f3eeb/checkpoints/epoch=1-step=200.ckpt
+  batch_size: 1
+  patch_size: [500, 500]
+  num_samples: 10  # limit number of samples for quick inference
+  num_workers: 10
+  save_predictions: True
+  output_dir: "./inference_outputs"
+  log_every_n_steps: 10
+  accelerator: "auto"
+  strategy: "auto"
+  seed: 42

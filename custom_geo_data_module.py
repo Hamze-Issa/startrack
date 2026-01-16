@@ -6,6 +6,7 @@ from torch.utils.data import DataLoader
 from torchgeo.datasets.splits import random_bbox_assignment
 from torchgeo.datasets import stack_samples
 import typing
+from enum import auto
 
 class CustomGeoDataModule(GeoDataModule):
     def __init__(
@@ -65,6 +66,7 @@ class CustomGeoDataModule(GeoDataModule):
             self.split_ratios,
             generator
         )
+        CRS = auto()
         
         # Set up samplers
         if stage in ["fit"]:
@@ -72,7 +74,7 @@ class CustomGeoDataModule(GeoDataModule):
                 self.train_dataset,
                 self.patch_size,
                 self.batch_size,
-                self.length
+                self.length,
             )
             print("Training dataset length:", len(self.train_dataset))
             print("Training sampler length:", len(self.train_batch_sampler))
@@ -94,13 +96,13 @@ class CustomGeoDataModule(GeoDataModule):
             self.test_sampler = GridGeoSampler(
                 self.test_dataset,
                 self.patch_size,
-                int(self.patch_size[0])/2 #Adding Overlap on testing
+                int(self.patch_size[0])/2, #Adding Overlap on testing
             )
         if stage in ["predict"]:
             self.predict_sampler = GridGeoSampler(
                 self.test_dataset,
                 self.patch_size,
-                int(self.patch_size[0])/2 #Adding Overlap on testing
+                int(self.patch_size[0])/2, #Adding Overlap on testing
             )
 
     def train_dataloader(self) -> DataLoader:
