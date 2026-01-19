@@ -52,7 +52,7 @@ uv pip install -r requirements.txt
 
 ### Only using pip:
 
-It is preferred to use **python 3.11** for the combination of torchgeo ad mlflow:
+It is preferred to use **python 3.11** for the combination of torchgeo and mlflow:
 
 ```
 pip install -r requirements.txt
