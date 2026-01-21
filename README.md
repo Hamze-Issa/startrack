@@ -19,15 +19,9 @@ Key features include:
 
 ## Installation
 
-Clone the repo and install dependencies:
+Clone the repo and cd into it then install dependencies either with uv or with only pip:
 
-```
-git clone https://gitlab.com/stcorp/libraries/startrack.git
-cd startrack
-```
-
-
-### Using uv for environment management (optional: skip to 'Only using pip' if not interested)
+### Using uv for environment management (preferred but optional: skip to 'Only using pip' if not interested)
 
 It is preferred to create an environment where you can install dependencies  and a specific python version and run the project freely to have a smoother operation since the combination of torchgeo and mlflow requires python 3.11 or later. You can do that easily with uv:
 
