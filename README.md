@@ -15,13 +15,12 @@ Key features include:
     
 - Modular dataset handling with TorchGeo for geophysical use cases.
 
-  
 
 ## Installation
 
 Clone the repo and cd into it then install dependencies either with uv or with only pip:
 
-### Using uv for environment management (preferred but optional: skip to 'Only using pip' if not interested)
+### Using uv for environment management (optional: skip to 'Only using pip' if not interested)
 
 It is preferred to create an environment where you can install dependencies  and a specific python version and run the project freely to have a smoother operation since the combination of torchgeo and mlflow requires python 3.11 or later. You can do that easily with uv:
 
@@ -52,13 +51,27 @@ It is preferred to use **python 3.11** for the combination of torchgeo and mlflo
 pip install -r requirements.txt
 ```
 
+## Download Example Data [This step is only for the workshop]
+
+Create an account at https://data.marine.copernicus.eu/products
+
+You will need the email and password to download the data.
+
+Download sea surface temperature and sea surface salinity on the East Greenland sea are for the year 2024.
+
+```
+cd data
+./downloader.sh
+```
+
+Convert the nc file data to tiff for better visualization and compatibility
+
+```
+python3 nc2tif.py --variable Sea_Surface_Salinity --nc-file cmems_obs-mob_glo_phy-sss_mynrt_smos-asc_P1D_multi-vars_39.80W-0.00W_65.00N-79.80N_2024-01-01-2025-01-01.nc
+python3 nc2tif.py --variable analysed_sst --nc-file METOFFICE-GLO-SST-L4-NRT-OBS-SST-V2_multi-vars_39.97W-0.03W_65.03N-79.97N_2024-01-17-2025-01-01.nc
+```
+
 ## Usage
-
-To run the trainer directly (default config and default params), you can simply:
-
-```
-python trainer.py
-```
 
 To modify the config or create a new config file, navigate to configs/<config_name>.yaml, edit the parameters you want, then run the trainer with the intended config file using the --config option:
 

@@ -2,6 +2,7 @@ import torch
 import torch.nn as nn
 from segmentation_models_pytorch import Unet
 from models.resnet import ResNetRegression
+from models.unet_reg import UNet_regression
 
 class ModelFactory:
     @staticmethod
@@ -23,6 +24,8 @@ class ModelFactory:
                 resnet_version=config['model']['resnet_version'],
                 weights=config['model']['weights'],
             )
+        elif model_type == 'unet_reg':
+            model = UNet_regression(in_ch=config['model']['in_channels'],)
         else:
             raise ValueError(f"Unknown model type: {model_type}")
         

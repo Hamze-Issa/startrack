@@ -1,0 +1,96 @@
+# Dataset Configuration
+datasets:
+  dataset_1:
+    name: 'sst'
+    root: '/mnt/experiment-3/ariel_workshop/startrack/data/tiff/sst/'
+    class: 'Dataset_1'
+    filename_glob: '*.tif'
+    filename_regex: 'sst_(?P<start>\d{8}T\d{6})_(?P<stop>\d{8}T\d{6})\.tif'
+    date_format: "%Y%m%dT%H%M%S"
+    is_image: true
+    bands: ['1']
+    # nodata_value: -32768
+
+  dataset_2:
+    name: 'sss'
+    root: '/mnt/experiment-3/ariel_workshop/startrack/data/tiff/sss/'
+    class: 'Mask_dataset'
+    filename_glob: '*.tif'
+    filename_regex: 'sss_(?P<start>\d{8}T\d{6})_(?P<stop>\d{8}T\d{6})\.tif'
+    date_format: "%Y%m%dT%H%M%S"
+    is_image: yes
+    bands: ['1']
+    nodata_value: -9999.0
+
+  combination:
+    sst & sss
+
+
+# Model Configuration
+model:
+  type: 'unet_reg'  # or whatever model defined or imported in model_wrapper
+  in_channels: 1
+  learning_rate: 0.0001
+  checkpoint_path: #/mnt/experiment-3/torchgeo/mlruns/400161525940777362/404bb77f2c3245bba04e61ae28f4dd42/checkpoints/epoch=18-step=95.ckpt
+
+
+loss:
+    name: 'masked_mse'
+    # params:
+    #   mode: 'binary'
+  
+metrics:
+  mse:
+    name: 'mse'
+
+
+augmentations: # These are applied to all tensors equally (all inputs and masks), if you want to change this behaviour, define data_keys in AugmentationSequential in augmentations.py
+  - name: RandomHorizontalFlip
+    params:
+      p: 0.5
+  - name: RandomVerticalFlip
+    params:
+      p: 0.5
+  - name: RandomRotation
+    params:
+      degrees: 10
+
+
+# Training Configuration
+training:
+  batch_size: 20
+  patch_size: [256, 256]
+  samples_per_epoch: 100
+  val_samples: 10
+  num_workers: 63
+  max_epochs: 50
+  split_ratios: [0.8, 0.1, 0.1]
+  seed: 42
+
+# Logging Configuration
+logging:
+  tb_log_dir: '.'
+  experiment_name: 'ntnu_workshop'
+  run_name: # 'whatever'
+  train_log_every_n_steps: 1
+  val_log_every_n_steps:  # Leaving this empty (None) makes the validation logging happen only at the end of the epoch
+  model_log_every_n_epochs: 1
+  save_top_k: 1
+  monitor: 'train_mse'
+  patience: 5
+  description: 'ntnu workshop exp'
+  tags: #{'tag 1': 1, 'tag 2': 2}
+
+# Testing Configuration -> used only for tester.py (inference)
+testing:
+  checkpoint_path: /mnt/experiment-3/torchgeo/968377319304808851/42163d8d88c642b3a1e67454c76f3eeb/checkpoints/epoch=1-step=200.ckpt
+  batch_size: 1
+  patch_size: [256, 256]
+  num_samples: 10  # limit number of samples for quick inference
+  num_workers: 10
+  save_predictions: True
+  output_dir: "./inference_outputs"
+  log_every_n_steps: 10
+  accelerator: "auto"
+  strategy: "auto"
+  seed: 42
