@@ -13,7 +13,7 @@ copernicusmarine subset \
 --variable mask \
 --variable sea_ice_fraction \
 --start-datetime 2024-01-01T00:00:00 \
---end-datetime 2025-01-01T00:00:00 \
+--end-datetime 2024-05-01T00:00:00 \
 --minimum-longitude -40 \
 --maximum-longitude 0 \
 --minimum-latitude 65 \
@@ -25,7 +25,7 @@ copernicusmarine subset \
 --variable Sea_Surface_Salinity \
 --variable Mean_Acq_Time \
 --start-datetime 2024-01-01T00:00:00 \
---end-datetime 2025-01-01T00:00:00 \
+--end-datetime 2024-05-01T00:00:00 \
 --minimum-longitude -40 \
 --maximum-longitude 0 \
 --minimum-latitude 65 \
