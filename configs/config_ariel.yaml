@@ -2,10 +2,10 @@
 datasets:
   dataset_1:
     name: 'sst'
-    root: '/mnt/experiment-3/ariel_workshop/startrack/data/tiff/sst/'
+    root: './data/tiff/analysed_sst/'
     class: 'Dataset_1'
     filename_glob: '*.tif'
-    filename_regex: 'sst_(?P<start>\d{8}T\d{6})_(?P<stop>\d{8}T\d{6})\.tif'
+    filename_regex: 'analysed_sst_(?P<start>\d{8}T\d{6})_(?P<stop>\d{8}T\d{6})\.tif'
     date_format: "%Y%m%dT%H%M%S"
     is_image: true
     bands: ['1']
@@ -13,10 +13,10 @@ datasets:
 
   dataset_2:
     name: 'sss'
-    root: '/mnt/experiment-3/ariel_workshop/startrack/data/tiff/sss/'
+    root: './data/tiff/Sea_Surface_Salinity/'
     class: 'Mask_dataset'
     filename_glob: '*.tif'
-    filename_regex: 'sss_(?P<start>\d{8}T\d{6})_(?P<stop>\d{8}T\d{6})\.tif'
+    filename_regex: 'Sea_Surface_Salinity_(?P<start>\d{8}T\d{6})_(?P<stop>\d{8}T\d{6})\.tif'
     date_format: "%Y%m%dT%H%M%S"
     is_image: yes
     bands: ['1']
@@ -63,7 +63,7 @@ training:
   samples_per_epoch: 100
   val_samples: 10
   num_workers: 63
-  max_epochs: 50
+  max_epochs: 5
   split_ratios: [0.8, 0.1, 0.1]
   seed: 42
 
