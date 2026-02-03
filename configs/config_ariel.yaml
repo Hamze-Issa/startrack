@@ -9,7 +9,7 @@ datasets:
     date_format: "%Y%m%dT%H%M%S"
     is_image: true
     bands: ['1']
-    # nodata_value: -32768
+    nodata_value: -32768
 
   dataset_2:
     name: 'sss'
@@ -31,7 +31,7 @@ model:
   type: 'unet_reg'  # or whatever model defined or imported in model_wrapper
   in_channels: 1
   learning_rate: 0.0001
-  checkpoint_path: #/mnt/experiment-3/torchgeo/mlruns/400161525940777362/404bb77f2c3245bba04e61ae28f4dd42/checkpoints/epoch=18-step=95.ckpt
+  checkpoint_path: #./mlruns/400161525940777362/404bb77f2c3245bba04e61ae28f4dd42/checkpoints/epoch=18-step=95.ckpt
 
 
 loss:

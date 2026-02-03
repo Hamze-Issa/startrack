@@ -68,7 +68,7 @@ Convert the nc file data to tiff for better visualization and compatibility
 
 ```
 python3 nc2tif.py --variable Sea_Surface_Salinity --nc-file <salinity(sss)_filename>
-python3 nc2tif.py --variable analysed_sst --nc-file temperature(sst)_filename>
+python3 nc2tif.py --variable analysed_sst --nc-file <temperature(sst)_filename>
 ```
 
 ## Usage
