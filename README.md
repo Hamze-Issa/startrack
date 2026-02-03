@@ -67,8 +67,8 @@ cd data
 Convert the nc file data to tiff for better visualization and compatibility
 
 ```
-python3 nc2tif.py --variable Sea_Surface_Salinity --nc-file cmems_obs-mob_glo_phy-sss_mynrt_smos-asc_P1D_multi-vars_39.80W-0.00W_65.00N-79.80N_2024-01-01-2025-01-01.nc
-python3 nc2tif.py --variable analysed_sst --nc-file METOFFICE-GLO-SST-L4-NRT-OBS-SST-V2_multi-vars_39.97W-0.03W_65.03N-79.97N_2024-01-17-2025-01-01.nc
+python3 nc2tif.py --variable Sea_Surface_Salinity --nc-file <salinity(sss)_filename>
+python3 nc2tif.py --variable analysed_sst --nc-file temperature(sst)_filename>
 ```
 
 ## Usage
