@@ -83,7 +83,7 @@ logging:
 
 # Testing Configuration -> used only for tester.py (inference)
 testing:
-  checkpoint_path: /mnt/experiment-3/torchgeo/968377319304808851/42163d8d88c642b3a1e67454c76f3eeb/checkpoints/epoch=1-step=200.ckpt
+  checkpoint_path: ./968377319304808851/42163d8d88c642b3a1e67454c76f3eeb/checkpoints/epoch=1-step=200.ckpt
   batch_size: 1
   patch_size: [256, 256]
   num_samples: 10  # limit number of samples for quick inference
