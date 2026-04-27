@@ -3,7 +3,7 @@
 datasets:
   dataset_1:
     name: 'sage'
-    root: '/mnt/experiment-3/SAGE/data/sample/'
+    root: '/mnt/experiment-2/SAGE/data/sample/'
     class: 'Dataset_nc'
     filename_glob: '*.nc'
     filename_regex: str = r'(?P<start>\d{8})_N\.nc'
@@ -15,7 +15,7 @@ datasets:
 
   mask_dataset:
     name: 'sage_labels'
-    root: '/mnt/experiment-3/SAGE/data/sample/'
+    root: '/mnt/experiment-2/SAGE/data/sample/'
     class: 'Mask_dataset_nc'
     filename_glob: '*.nc'
     filename_regex: str = r'(?P<start>\d{8})_N\.nc'

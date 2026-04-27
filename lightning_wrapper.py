@@ -18,6 +18,20 @@ class GenericTask(pl.LightningModule):
         loss_config = config['loss']
         loss_cls = LOSS_FUNCTIONS[loss_config['name']]
         self.loss_fn = loss_cls(**loss_config.get('params', {}))
+        # fill_value is applied to invalid pixels in both x and y before the forward pass.
+        # With z-score normalization 0.0 equals the channel mean (correct for all channels).
+        # For min-max [0,1] use 0.5; for unnormalized data use your approximate channel mean.
+        # For labels (y) the value is irrelevant — invalid pixels are excluded by flattening.
+        self.fill_value = config['training'].get('fill_value', 0.0)
+
+        # Activation applied to raw model output before metrics and saved predictions.
+        # NOT applied before the loss — all built-in loss functions expect raw logits.
+        _act_map = {
+            'sigmoid': torch.sigmoid,
+            'softmax': lambda x: torch.softmax(x, dim=1),
+            'none':    lambda x: x,
+        }
+        self.activation = _act_map[config['model'].get('activation', 'none')]
 
         # Metrics
         self.metrics = {}
@@ -64,11 +78,12 @@ class GenericTask(pl.LightningModule):
         x_valid = next((v for k, v in batch.items() if k.startswith('image') and k.endswith('_valid') and isinstance(v, torch.Tensor)), None)
         y_valid = next((v for k, v in batch.items() if k.startswith('mask') and k.endswith('_valid') and isinstance(v, torch.Tensor)), None)
         
-        # Mask x and y with the joint masks from all the datasets
+        # Re-fill joint-invalid pixels with fill_value so the model sees a
+        # consistent signal across all channels at invalid positions.
         joint_valid = get_joint_valid_mask(batch)
         if joint_valid is not None:
-            x_masked = torch.where(joint_valid, x, torch.tensor(0.0, device=x.device, dtype=x.dtype))
-            y_masked = torch.where(joint_valid, y, torch.tensor(0.0, device=y.device, dtype=y.dtype))
+            x_masked = torch.where(joint_valid, x, torch.full_like(x, self.fill_value))
+            y_masked = torch.where(joint_valid, y, torch.full_like(y, self.fill_value))
         else:
             x_masked = x
             y_masked = y
@@ -84,15 +99,17 @@ class GenericTask(pl.LightningModule):
         # log_tensor_stats("y_valid", y_valid)
         # log_tensor_stats("y_masked", y_masked)
 
-        # Calculate loss
-        loss = self.loss_fn(y_hat, y_masked.float())
+        # Calculate loss — MaskedLoss flattens to valid pixels internally
+        loss = self.loss_fn(y_hat, y_masked.float(), mask=joint_valid)
 
-        # Calculate metrics
-        # Apply activation if needed
-        preds = y_hat.sigmoid() # For binary/multilabel
-        # preds = y_hat.argmax(dim=1) # For multiclass
-        # preds = y_hat #y_hat.sigmoid()
-        metrics = self.metrics(preds, y_masked.int())
+        # Calculate metrics — flatten to valid pixels so invalid areas don't
+        # pollute accuracy/F1/IoU counts
+        preds = self.activation(y_hat)
+        if joint_valid is not None:
+            valid_flat = joint_valid.expand_as(preds).bool()
+            metrics = self.metrics(preds[valid_flat], y_masked.int()[valid_flat])
+        else:
+            metrics = self.metrics(preds, y_masked.int())
         
 
         ##### Logging parameters and images #####
@@ -102,18 +119,20 @@ class GenericTask(pl.LightningModule):
             self.log_dict({f"{prefix}_{k}": v for k,v in metrics.items()}, sync_dist=True, on_step=True, on_epoch=True, batch_size=self.config['training']['batch_size']) # Logging Metrics
         else:  # validation
             self.log(
-                f"{prefix}_loss", 
+                f"{prefix}_loss",
                 loss,
                 sync_dist=True,
                 on_step=True,
                 on_epoch=True,
-                prog_bar=True
+                prog_bar=True,
+                batch_size=self.config['training']['batch_size']
             )
             self.log_dict(
-                {f"{prefix}_{k}": v for k,v in metrics.items()},
+                {f"{prefix}_{k}": v for k, v in metrics.items()},
                 sync_dist=True,
                 on_step=True,
-                on_epoch=True
+                on_epoch=True,
+                batch_size=self.config['training']['batch_size']
             )
 
         # if batch_idx == 0: # make a condition here if you need another logging logic
@@ -132,19 +151,17 @@ class GenericTask(pl.LightningModule):
         meta = batch["meta"]          # list or dict of metadata per sample
         y_hat = self(x)               # model forward pass
 
-        # Mask y_hat with the joint masks from all the datasets
+        # Zero out predictions at invalid pixels before saving
         joint_valid = get_joint_valid_mask(batch)
         if joint_valid is not None:
-            y_hat_masked = torch.where(joint_valid, y_hat, torch.tensor(0.0, device=y_hat.device, dtype=y_hat.dtype))
+            y_hat_masked = torch.where(joint_valid, y_hat, torch.full_like(y_hat, self.fill_value))
         else:
             y_hat_masked = y_hat
 
-        # Apply activation if needed
-        # preds = y_hat.sigmoid() # For binary/multilabel
-        # preds = y_hat.argmax(dim=1) # For multiclass
+        preds = self.activation(y_hat_masked)
         crop = int(x.shape[-1] / 4) # cropping the center parts of the predictions to avoid edge artifacts (compensated by an overlap of the same size made by the stride in the dataloader)
         save_dir = self.config['testing'].get('output_dir', "./inference_outputs")
-        outputs = save_predictions(y_hat_masked, meta, save_dir, batch_idx, crop) # saving in format: "pred_{batch_idx}_{i}_{mint}_{maxt}.tif"
+        outputs = save_predictions(preds, meta, save_dir, batch_idx, crop) # saving in format: "pred_{batch_idx}_{i}_{mint}_{maxt}.tif"
         # outputs = save_predictions(batch['mask'], meta, "./inference_masks", batch_idx, crop) # uncomment if you want to also save the labels
 
         return outputs

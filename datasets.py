@@ -10,35 +10,43 @@ from pyproj import CRS
 # In the style of the below example datasets (Datasets1 and 2 and Mask_dataset which is for labels).
 # Then don't forget to add your newly created dataset to the DATASET_CLASSES dictionary below so it can be used by the trainer. 
 
-def process_sample(self, sample, nodata_value=None, replace_value=0.0):
+def process_sample(self, sample, nodata_value=None, normalization=None, replace_value=0.0):
     # If keep_meta is True (preferred to be false unless you're predicting and need the metadata to save predictions)
     # then this saves metadata in a safe way to keep them separate from tensor mutable data before entering Lightning
     # keep_meta is defaulted to True only in the prediction/testing script
     if self.keep_meta:
         sample['meta'] = parse_meta(sample)
-    # Process image and mask if they exist
     processed = {}
     for key in sample:
         if key == "image" or key == "mask":
             tensor = sample[key]
-            # Store a mask where values were valid (not nan/inf/nodata)
+
+            # Step 1: mark nodata sentinel as NaN before normalization so it
+            # doesn't get z-scored into a finite extreme value
+            if nodata_value is not None:
+                tensor = tensor.masked_fill(tensor == nodata_value, float('nan'))
+
+            # Step 2: apply per-channel z-score using dataset-level stats from
+            # config, NaN-aware (only finite pixels are normalized)
+            if normalization is not None:
+                mean = torch.tensor(normalization['mean'], dtype=tensor.dtype, device=tensor.device).view(-1, 1, 1)
+                std  = torch.tensor(normalization['std'],  dtype=tensor.dtype, device=tensor.device).view(-1, 1, 1)
+                tensor = torch.where(torch.isfinite(tensor), (tensor - mean) / std.clamp(min=1e-8), tensor)
+
+            # Step 3: build valid mask — captures every NaN/Inf still present
+            # (original NaN, nodata-turned-NaN, posinf, neginf)
             valid_mask = ~torch.isnan(tensor) & torch.isfinite(tensor)
 
-            # Replace NaN, positive Inf, negative Inf
+            # Step 4: fill all invalid values with replace_value.
+            # With z-score normalization, 0.0 (default) equals the channel mean.
+            # For non-normalized input data set replace_value to your distribution mean.
+            # For classification labels the value is irrelevant — invalid pixels are
+            # excluded by the joint_valid mask before any loss or metric computation.
             tensor = torch.nan_to_num(tensor, nan=replace_value, posinf=replace_value, neginf=replace_value)
 
-            if nodata_value is not None:
-                # Create a mask where tensor equals nodata_value
-                nodata_mask = (tensor == nodata_value)
-                # Update valid_mask to also exclude nodata values
-                valid_mask = valid_mask & (~nodata_mask)
-                # Replace those nodata values with replace_value
-                tensor = torch.where(nodata_mask, torch.tensor(replace_value, dtype=tensor.dtype, device=tensor.device), tensor)
-            # Store the resultant tensor that should have only valid values and anything else set to replace_value
             processed[key] = tensor
             processed[f'{key}_{self.name}_valid'] = valid_mask.float()
         else:
-            # Preserve all other keys unchanged
             processed[key] = sample[key]
     return processed
 
@@ -46,7 +54,7 @@ def process_sample(self, sample, nodata_value=None, replace_value=0.0):
 class Dataset_1(RasterDataset):
     # filename_regex = r"sst_(?P<start>\d{8}T\d{6})_(?P<stop>\d{8}T\d{6})\.tif"
     # date_format = "%Y%m%dT%H%M%S"
-    def __init__(self, root: str, name: str="dataset_1", filename_glob: str='*.tif', filename_regex='dataset_1_(?P<start>\d{8}T\d{6})_(?P<stop>\d{8}T\d{6})\.tif', date_format="%Y%m%dT%H%M%S", is_image=True, bands=('1'), nodata_value=None, replace_value=0.0, keep_meta=False, **kwargs):
+    def __init__(self, root: str, name: str="dataset_1", filename_glob: str='*.tif', filename_regex='dataset_1_(?P<start>\d{8}T\d{6})_(?P<stop>\d{8}T\d{6})\.tif', date_format="%Y%m%dT%H%M%S", is_image=True, bands=('1'), nodata_value=None, normalization=None, replace_value=0.0, keep_meta=False, **kwargs):
         self.name = name
         self.filename_glob = filename_glob
         self.filename_regex = filename_regex
@@ -54,6 +62,7 @@ class Dataset_1(RasterDataset):
         self.is_image = is_image
         self.all_bands = bands
         self.nodata_value = nodata_value
+        self.normalization = normalization
         self.replace_value = replace_value
         self.keep_meta = keep_meta
         super().__init__(root, **kwargs)
@@ -67,7 +76,7 @@ class Dataset_1(RasterDataset):
         sample = super().__getitem__(index)
         
 
-        processed = process_sample(self, sample, self.nodata_value, self.replace_value)
+        processed = process_sample(self, sample, self.nodata_value, self.normalization, self.replace_value)
         return processed
 
     def plot(self, sample):
@@ -90,7 +99,7 @@ class Dataset_1(RasterDataset):
         return fig
     
 class Dataset_2(RasterDataset):
-    def __init__(self, root: str, name: str="dataset_2", filename_glob: str='*.tif', filename_regex='dataset_2_(?P<start>\d{8}T\d{6})_(?P<stop>\d{8}T\d{6})\.tif', date_format="%Y%m%dT%H%M%S", is_image=True, bands=('1'), nodata_value=None, replace_value=0.0, keep_meta=False, **kwargs):
+    def __init__(self, root: str, name: str="dataset_2", filename_glob: str='*.tif', filename_regex='dataset_2_(?P<start>\d{8}T\d{6})_(?P<stop>\d{8}T\d{6})\.tif', date_format="%Y%m%dT%H%M%S", is_image=True, bands=('1'), nodata_value=None, normalization=None, replace_value=0.0, keep_meta=False, **kwargs):
         self.name = name
         self.filename_glob = filename_glob
         self.filename_regex = filename_regex
@@ -98,6 +107,7 @@ class Dataset_2(RasterDataset):
         self.is_image = is_image
         self.all_bands = bands
         self.nodata_value = nodata_value
+        self.normalization = normalization
         self.replace_value = replace_value
         self.keep_meta = keep_meta
         super().__init__(root, **kwargs)
@@ -108,8 +118,9 @@ class Dataset_2(RasterDataset):
     def __getitem__(self, index):
         sample = super().__getitem__(index)
         
-        processed = process_sample(self, sample, self.nodata_value, self.replace_value)
+        processed = process_sample(self, sample, self.nodata_value, self.normalization, self.replace_value)
         return processed
+
 class Dataset_nc(XarrayDataset):
     """Wrapper around TorchGeo XarrayDataset for NetCDF files."""
 
@@ -125,6 +136,7 @@ class Dataset_nc(XarrayDataset):
         is_image: bool = True,
         bands: Sequence[str] = ("variable_name",),
         nodata_value=None,
+        normalization=None,
         replace_value: float = 0.0,
         keep_meta: bool = False,
         transforms=None,
@@ -139,6 +151,7 @@ class Dataset_nc(XarrayDataset):
         self.is_image = is_image
         self.all_bands = bands
         self.nodata_value = nodata_value
+        self.normalization = normalization
         self.replace_value = replace_value
         self.keep_meta = keep_meta
 
@@ -159,16 +172,16 @@ class Dataset_nc(XarrayDataset):
     def __getitem__(self, query):
         # query is a GeoSlice, as expected by XarrayDataset.__getitem__
         sample = super().__getitem__(query)
-        
+
         # Remove singleton time dimension
         if sample['image'].dim() == 4 and sample['image'].shape[1] == 1:
             sample['image'] = sample['image'].squeeze(1)  # [C, 1, H, W] -> [C, H, W]
-        
-        processed = process_sample(self, sample, self.nodata_value, self.replace_value)
+
+        processed = process_sample(self, sample, self.nodata_value, self.normalization, self.replace_value)
         return processed
 
 class Mask_dataset(RasterDataset):
-    def __init__(self, root: str, name: str="mask_dataset", filename_glob: str='*.tif', filename_regex='mask_dataset_(?P<start>\d{8}T\d{6})_(?P<stop>\d{8}T\d{6})\.tif', date_format="%Y%m%dT%H%M%S", is_image=False, bands=('1'), nodata_value=None, replace_value=0.0, keep_meta=False, **kwargs):
+    def __init__(self, root: str, name: str="mask_dataset", filename_glob: str='*.tif', filename_regex='mask_dataset_(?P<start>\d{8}T\d{6})_(?P<stop>\d{8}T\d{6})\.tif', date_format="%Y%m%dT%H%M%S", is_image=False, bands=('1'), nodata_value=None, normalization=None, replace_value=0.0, keep_meta=False, **kwargs):
         self.name = name
         self.filename_glob = filename_glob
         self.filename_regex = filename_regex
@@ -176,6 +189,7 @@ class Mask_dataset(RasterDataset):
         self.is_image = is_image
         self.all_bands = bands
         self.nodata_value = nodata_value
+        self.normalization = normalization
         self.replace_value = replace_value
         self.keep_meta = keep_meta
         super().__init__(root, **kwargs)
@@ -188,7 +202,7 @@ class Mask_dataset(RasterDataset):
         if "image" in sample:
             sample["mask"] = sample.pop("image")
 
-        processed = process_sample(self, sample, self.nodata_value, self.replace_value)
+        processed = process_sample(self, sample, self.nodata_value, self.normalization, self.replace_value)
         return processed
 
 
@@ -207,6 +221,7 @@ class Mask_dataset_nc(XarrayDataset):
         is_image: bool = False,
         bands: Sequence[str] = ("variable_name",),
         nodata_value=None,
+        normalization=None,
         replace_value: float = 0.0,
         keep_meta: bool = False,
         transforms=None,
@@ -221,6 +236,7 @@ class Mask_dataset_nc(XarrayDataset):
         self.is_image = is_image
         self.all_bands = bands
         self.nodata_value = nodata_value
+        self.normalization = normalization
         self.replace_value = replace_value
         self.keep_meta = keep_meta
 
@@ -243,12 +259,12 @@ class Mask_dataset_nc(XarrayDataset):
         sample = super().__getitem__(query)
         if "image" in sample:
             sample["mask"] = sample.pop("image")
-        
+
         # Remove singleton time dimension
         if sample['mask'].dim() == 4 and sample['mask'].shape[1] == 1:
             sample['mask'] = sample['mask'].squeeze(1)  # [C, 1, H, W] -> [C, H, W]
-        
-        processed = process_sample(self, sample, self.nodata_value, self.replace_value)
+
+        processed = process_sample(self, sample, self.nodata_value, self.normalization, self.replace_value)
         return processed
 
 DATASET_CLASSES = {

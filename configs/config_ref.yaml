@@ -1,0 +1,613 @@
+# =============================================================================
+# STARTRACK — REFERENCE CONFIGURATION
+# =============================================================================
+# This file documents every available configuration parameter.
+# Copy it, rename it, and delete or fill in what you need.
+# Parameters marked REQUIRED must be set. All others have defaults or are optional.
+#
+# Quick-start task guides
+# -----------------------
+# Binary segmentation   → loss: bce or dice | metrics: iou, f1, accuracy (task: binary)
+#                         activation in lightning_wrapper: sigmoid (already default)
+#                         label normalization: none
+#
+# Multiclass segmentation → loss: cross_entropy | metrics: accuracy (task: multiclass)
+#                           activation in lightning_wrapper: argmax (change manually)
+#                           labels: 0-indexed integers (0, 1, 2 …), NOT negative
+#                           label normalization: none
+#
+# Regression            → loss: mse or huber | metrics: mse, r2_metric
+#                         activation in lightning_wrapper: none (change manually)
+#                         label normalization: recommended (same z-score as inputs)
+# =============================================================================
+
+
+# =============================================================================
+# DATASETS
+# =============================================================================
+# Define one block per dataset. Each block is passed directly as kwargs to the
+# dataset class constructor, so any torchgeo RasterDataset / XarrayDataset kwarg
+# is also accepted here (e.g. res, crs, transforms).
+#
+# The 'combination' key is a Python expression that joins datasets using &.
+# Dataset names used here must match the 'name' field of each dataset block.
+# Example: "sst & sss & calving_labels"
+#
+# IMPORTANT — class alignment:
+#   All datasets must cover the same spatial extent and CRS, or torchgeo will
+#   silently return empty/misaligned patches. Use the same crs and res across
+#   all datasets, or set them explicitly per dataset.
+# =============================================================================
+
+datasets:
+
+  # ---------------------------------------------------------------------------
+  # Example input dataset (GeoTIFF — RasterDataset)
+  # Use Dataset_1 or Dataset_2 for GeoTIFF input features.
+  # ---------------------------------------------------------------------------
+  dataset_1:
+
+    # REQUIRED — must match a key in DATASET_CLASSES in datasets.py
+    class: 'Dataset_1'
+
+    # REQUIRED — unique name used to identify this dataset in the combination
+    # expression and in the *_valid mask keys (e.g. image_sst_valid)
+    name: 'sst'
+
+    # REQUIRED — path to the directory containing the dataset files
+    root: './data/tiff/sst/'
+
+    # Glob pattern used to find files under root. Default: '*.tif'
+    filename_glob: 'sst_*.tif'
+
+    # Regex with named group (?P<start>...) used to parse the timestamp from
+    # the filename. Must match the filename_glob pattern.
+    filename_regex: 'sst_(?P<start>\d{8}T\d{6})_(?P<stop>\d{8}T\d{6})\.tif'
+
+    # strftime format string matching the timestamp captured by filename_regex
+    date_format: "%Y%m%dT%H%M%S"
+
+    # Whether this dataset provides model inputs (true) or labels/targets (false).
+    # Set to true for all input feature datasets.
+    is_image: true
+
+    # List of band names or indices to load. For GeoTIFFs use '1', '2', etc.
+    # For NetCDF files use the variable names as defined in the file.
+    # The order here determines the channel order in the tensor.
+    bands: ['1']
+
+    # Coordinate Reference System. Set explicitly if torchgeo cannot infer it,
+    # or to reproject on-the-fly. Use EPSG codes or proj strings.
+    # Example: "EPSG:4326" or "EPSG:6931"
+    # Default: inferred from the file metadata
+    # crs: "EPSG:4326"
+
+    # Spatial resolution in CRS units per pixel (metres for projected CRS).
+    # Set explicitly if torchgeo cannot infer it or if it is negative (known
+    # torchgeo issue with some CRS). Provide [x_res, y_res] or a single float.
+    # Default: inferred from the file metadata
+    # res: [1000.0, 1000.0]
+
+    # Raw sentinel value in the source file that means "no data".
+    # This value is detected BEFORE z-score normalization and converted to NaN
+    # so it does not corrupt the normalization statistics or get z-scored into
+    # an extreme-but-finite value. Leave null if nodata is already NaN in files.
+    # Common values: -9999, -32768, 255, 65535
+    nodata_value: -9999
+
+    # Per-channel z-score normalization statistics.
+    # Compute these once over your full dataset using a stats utility script
+    # and paste the results here. The same values MUST be used at inference.
+    #
+    # REQUIRED for input features unless data is already normalized externally.
+    # NOT recommended for classification labels (keep null for those).
+    # For regression labels: set to the label distribution's mean/std.
+    #
+    # mean and std must each have one value per band in the same order as 'bands'.
+    #
+    # Why z-score:
+    #   After z-score, 0.0 equals the channel mean — the most neutral possible
+    #   fill for invalid pixels. This makes the fill_value (training.fill_value)
+    #   universally correct across all channels and datasets.
+    normalization:
+      mean: [12.4]    # one value per band
+      std:  [3.1]     # one value per band
+
+    # Value used to fill invalid pixels (NaN, Inf, nodata) in the tensor
+    # AFTER valid_mask has been built and AFTER normalization.
+    # With z-score normalization, 0.0 is the channel mean — leave it as-is.
+    # Without z-score: set to your distribution midpoint (e.g. 0.5 for min-max
+    # [0,1] data) or to the approximate per-channel mean.
+    # For classification labels: irrelevant — invalid pixels are excluded
+    # from all calculations by joint_valid masking and flattening.
+    # Default: 0.0
+    replace_value: 0.0
+
+    # Pass metadata (CRS, bounds, timestamps) through the pipeline for saving
+    # georeferenced predictions. Set to true only for inference (tester.py).
+    # Leave false during training to avoid overhead.
+    # Default: false
+    keep_meta: false
+
+
+  # ---------------------------------------------------------------------------
+  # Example input dataset (NetCDF — XarrayDataset)
+  # Use Dataset_nc for NetCDF input features.
+  # ---------------------------------------------------------------------------
+  dataset_nc:
+    class: 'Dataset_nc'
+    name: 'chl'
+    root: './data/nc/chlorophyll/'
+    filename_glob: '*.nc'
+    filename_regex: '(?P<start>\d{8})_N\.nc'
+    date_format: "%Y%m%d"
+    is_image: true
+    bands: ['CHL']       # NetCDF variable name
+    crs: "EPSG:4326"
+    res: [0.05, 0.05]
+    nodata_value: null   # null means no sentinel; NaN in the file is detected automatically
+    normalization:
+      mean: [0.18]
+      std:  [0.42]
+    replace_value: 0.0
+    keep_meta: false
+
+
+  # ---------------------------------------------------------------------------
+  # Example label dataset — binary / regression (GeoTIFF)
+  # Use Mask_dataset for GeoTIFF labels/targets.
+  # ---------------------------------------------------------------------------
+  mask_dataset:
+    class: 'Mask_dataset'
+    name: 'calving'
+    root: './data/tiff/calving_labels/'
+    filename_glob: '*.tif'
+    filename_regex: 'calving_(?P<start>\d{8}T\d{6})_(?P<stop>\d{8}T\d{6})\.tif'
+    date_format: "%Y%m%dT%H%M%S"
+    is_image: false      # false marks this as the label / target dataset
+    bands: ['1']
+    nodata_value: -9999
+
+    # Normalization for labels:
+    #   Binary classification (0/1)  → do NOT set (leave null)
+    #   Multiclass (0, 1, 2 …)       → do NOT set (leave null)
+    #   Regression (continuous)      → set mean/std of the label distribution
+    # normalization:
+    #   mean: [0.0]
+    #   std:  [1.0]
+
+    # replace_value for labels:
+    #   Binary / multiclass   → leave at 0.0 (value is irrelevant; masked out)
+    #   Regression            → leave at 0.0 (equals z-score mean if normalized)
+    replace_value: 0.0
+    keep_meta: false
+
+
+  # ---------------------------------------------------------------------------
+  # Example label dataset (NetCDF)
+  # Use Mask_dataset_nc for NetCDF labels/targets.
+  # ---------------------------------------------------------------------------
+  # mask_dataset_nc:
+  #   class: 'Mask_dataset_nc'
+  #   name: 'ice_labels'
+  #   root: './data/nc/ice_labels/'
+  #   filename_glob: '*.nc'
+  #   filename_regex: '(?P<start>\d{8})_N\.nc'
+  #   date_format: "%Y%m%d"
+  #   is_image: false
+  #   bands: ['ice_concentration']
+  #   crs: "EPSG:6931"
+  #   res: [25000.0, 25000.0]
+  #   nodata_value: null
+  #   normalization: null
+  #   replace_value: 0.0
+  #   keep_meta: false
+
+
+  # ---------------------------------------------------------------------------
+  # Dataset combination expression — REQUIRED
+  # ---------------------------------------------------------------------------
+  # Python expression using & to intersect datasets. Only spatiotemporal
+  # regions where ALL listed datasets have data are sampled.
+  # Use the 'name' values (not the block keys) from the dataset blocks above.
+  combination: sst & chl & calving
+
+
+# =============================================================================
+# MODEL
+# =============================================================================
+# All parameters here are passed to ModelFactory.create_model(config).
+# Supported types and their parameters depend on your model_wrapper.py.
+# =============================================================================
+
+model:
+
+  # REQUIRED — model architecture identifier as defined in model_wrapper.py
+  # Examples: 'unet', 'unet_reg', 'loopunet'
+  type: 'unet'
+
+  # Encoder/backbone architecture. Passed to segmentation_models_pytorch or
+  # your custom architecture. Examples: 'resnet50', 'efficientnet-b4', 'vgg16'
+  backbone: 'resnet50'
+
+  # Pretrained encoder weights. Use 'imagenet' for ImageNet pretrained weights,
+  # or null to initialise from scratch.
+  # Note: ImageNet weights assume 3-channel RGB input. If in_channels != 3
+  # the first layer will be re-initialised automatically by smp.
+  weights: 'imagenet'
+
+  # Number of input channels to the model.
+  # Must equal the total number of bands across all input datasets.
+  # If training.fill_value masking is used, this does NOT include the mask channel
+  # (the extra channel feature is deferred — increment by 1 when that is enabled).
+  # REQUIRED
+  in_channels: 2
+
+  # Number of output channels (classes for classification, 1 for binary/regression).
+  # Binary segmentation: 1
+  # Multiclass (N classes): N
+  # Regression: 1
+  # REQUIRED
+  num_classes: 1
+
+  # Initial learning rate for the Adam optimiser.
+  # REQUIRED
+  learning_rate: 0.001
+
+  # Activation function applied to the raw model output (logits) before metrics
+  # and before saving predictions in tester.py. NOT applied before the loss —
+  # all built-in loss functions (bce, cross_entropy, dice) expect raw logits.
+  #
+  # Options:
+  #   'sigmoid'  → squashes each output channel independently to [0, 1].
+  #                Use for binary segmentation (num_classes: 1) and multilabel.
+  #                torchmetrics binary metrics (accuracy, f1, iou) threshold these
+  #                probabilities at 0.5 by default (configurable via 'threshold').
+  #                Saved GeoTIFFs contain per-pixel probabilities in [0, 1].
+  #
+  #   'softmax'  → normalises across the class dimension (dim=1) so all class
+  #                probabilities sum to 1 per pixel.
+  #                Use for multiclass segmentation (num_classes > 1).
+  #                torchmetrics multiclass metrics accept these directly — no
+  #                argmax needed for metrics.
+  #                Saved GeoTIFFs have num_classes channels (one prob map each).
+  #                If you need a single integer class map on disk, apply argmax
+  #                manually after loading, or add a post-processing step.
+  #
+  #   'none'     → returns raw logits / regression outputs unchanged.
+  #                Use for regression (mse, huber loss).
+  #                Saved GeoTIFFs contain raw model outputs.
+  #
+  # Task → activation quick reference:
+  #   Binary segmentation    → sigmoid
+  #   Multilabel             → sigmoid
+  #   Multiclass             → softmax
+  #   Regression             → none
+  #
+  # Default: 'none'
+  activation: 'sigmoid'
+
+  # Path to a Lightning checkpoint (.ckpt) to resume training or fine-tune from.
+  # Set to null to start from scratch.
+  # Default: null
+  checkpoint_path: null
+
+
+# =============================================================================
+# LOSS FUNCTION
+# =============================================================================
+# Available loss functions (defined in loss_functions.py):
+#
+#   Per-pixel losses — invalid pixels excluded via joint_valid flattening:
+#     'bce'           BCEWithLogitsLoss. Binary segmentation, multilabel.
+#                     Targets: float in [0, 1] or {0.0, 1.0}
+#     'mse'           Mean Squared Error. Regression.
+#                     Targets: float (any range, ideally z-score normalised)
+#     'huber'         Huber loss (smooth L1). Regression, robust to outliers.
+#                     Targets: float. Extra param: delta (default 1.0)
+#     'cross_entropy' CrossEntropyLoss. Multiclass segmentation.
+#                     Targets: integer class indices [B, H, W], 0-indexed,
+#                              NON-NEGATIVE. Classes must be 0, 1, 2 …
+#
+#   Structural losses — full spatial tensor; invalid pixels NOT excluded:
+#     'dice'          Dice loss. Binary segmentation.
+#                     Requires smp DiceLoss params (e.g. mode: 'binary').
+#                     Use only when invalid regions are small and infrequent.
+#
+# All per-pixel losses are automatically wrapped in MaskedLoss which flattens
+# inputs and targets to only the valid pixels defined by joint_valid before
+# computing the loss. No additional mask configuration is needed.
+# =============================================================================
+
+loss:
+
+  # REQUIRED — one of the keys listed above
+  name: 'bce'
+
+  # Optional kwargs passed directly to the underlying PyTorch loss constructor.
+  # params:
+  #   pos_weight: 10.0      # bce: weight for positive class (class imbalance)
+  #   delta: 1.0            # huber: threshold between L1 and L2 behaviour
+  #   ignore_index: -100    # cross_entropy: class index to ignore (redundant
+  #                         #   when using MaskedLoss, but harmless)
+  #   weight: [1.0, 2.0, 3.0]  # cross_entropy: per-class loss weight tensor
+  #   mode: 'binary'        # dice: 'binary', 'multiclass', or 'multilabel'
+  #   smooth: 1.0           # dice: smoothing factor
+
+
+# =============================================================================
+# METRICS
+# =============================================================================
+# One or more metrics to track. Each entry is a named block with a 'name'
+# key and optional 'params' passed to the torchmetrics constructor.
+#
+# Available metrics (defined in metrics.py):
+#   'iou'            JaccardIndex. Classification.
+#   'accuracy'       Accuracy. Classification.
+#   'multiclass_acc' MulticlassAccuracy. Multiclass.
+#   'f1'             F1Score. Classification.
+#   'mse'            MeanSquaredError. Regression.
+#   'r2_metric'      R² score. Regression.
+#
+# All metrics receive only valid pixels (joint_valid flattening applied in
+# lightning_wrapper before the metric call), so no mask configuration is needed.
+#
+# torchmetrics requires a 'task' parameter for classification metrics:
+#   task: 'binary'      → two classes, threshold-based
+#   task: 'multiclass'  → N classes, requires num_classes
+#   task: 'multilabel'  → multiple simultaneous binary labels
+#
+# For regression metrics no 'task' is needed.
+# =============================================================================
+
+metrics:
+
+  # Example: binary IoU
+  iou:
+    name: 'iou'
+    params:
+      task: 'binary'
+
+  # Example: binary accuracy with custom threshold
+  accuracy:
+    name: 'accuracy'
+    params:
+      task: 'binary'
+      threshold: 0.5
+
+  # Example: binary F1
+  # f1:
+  #   name: 'f1'
+  #   params:
+  #     task: 'binary'
+  #     threshold: 0.5
+
+  # Example: multiclass accuracy
+  # multiclass_acc:
+  #   name: 'multiclass_acc'
+  #   params:
+  #     num_classes: 3
+  #     average: 'macro'
+
+  # Example: regression MSE
+  # mse:
+  #   name: 'mse'
+
+  # Example: R² score (regression)
+  # r2:
+  #   name: 'r2_metric'
+  #   params:
+  #     num_outputs: 1
+
+
+# =============================================================================
+# AUGMENTATIONS  (optional)
+# =============================================================================
+# Batch-level augmentations applied jointly to ALL tensors in the batch
+# (inputs and labels) using Kornia's AugmentationSequential.
+# Augmentations are applied only during training, not validation or inference.
+#
+# Available augmentations (defined in augmentations.py):
+#   RandomHorizontalFlip   params: p (flip probability, default 0.5)
+#   RandomVerticalFlip     params: p (flip probability, default 0.5)
+#   RandomRotation         params: degrees (max rotation in degrees, default 15)
+#   ColorJitter            params: brightness, contrast, saturation, hue
+#
+# Remove this block entirely to disable augmentations.
+# To add new augmentations, add them to AUGMENTATION_FUNCTIONS in augmentations.py.
+# =============================================================================
+
+augmentations:
+  - name: RandomHorizontalFlip
+    params:
+      p: 0.5
+  - name: RandomVerticalFlip
+    params:
+      p: 0.5
+  - name: RandomRotation
+    params:
+      degrees: 10
+
+
+# =============================================================================
+# TRAINING
+# =============================================================================
+
+training:
+
+  # Number of samples per training batch.
+  # REQUIRED
+  batch_size: 16
+
+  # [height, width] of each spatial patch in pixels, sampled by torchgeo's
+  # RandomGeoSampler. Larger patches give more context to the model but use
+  # more memory. Must be consistent between training and inference.
+  # REQUIRED
+  patch_size: [256, 256]
+
+  # Total number of patches drawn per training epoch.
+  # Controls epoch length independently of dataset size.
+  # REQUIRED
+  samples_per_epoch: 1000
+
+  # Number of patches used for validation per epoch.
+  # Used both by the sampler and to set limit_val_batches in the trainer.
+  # REQUIRED
+  val_samples: 100
+
+  # Number of CPU workers for the DataLoader.
+  # Rule of thumb: set to the number of available CPU cores.
+  # REQUIRED
+  num_workers: 8
+
+  # Maximum number of training epochs.
+  # Training may stop earlier if EarlyStopping triggers.
+  # REQUIRED
+  max_epochs: 50
+
+  # Train/val split ratios. Must sum to 1.0.
+  # Two values [train, val]: training and validation only.
+  # Three values [train, val, test]: includes a held-out test split
+  #   (test split is not yet used by trainer.py — reserved for future use).
+  # REQUIRED
+  split_ratios: [0.8, 0.2]
+
+  # Random seed for dataset splitting and sampler reproducibility.
+  # REQUIRED
+  seed: 42
+
+  # Fill value applied to all invalid pixels (NaN, Inf, nodata) in both
+  # the model input (x) and labels (y) when building the joint_valid mask
+  # in the training loop.
+  #
+  # For x: this value is what the model sees at invalid positions in the
+  #   forward pass. It should equal the channel mean of your input data.
+  #   → z-score normalized inputs: use 0.0 (default) — it equals the mean
+  #   → min-max [0, 1] inputs: use 0.5 (distribution midpoint)
+  #   → unnormalized inputs: use the approximate per-channel mean
+  #
+  # For y: this value is irrelevant for correctness — invalid label pixels
+  #   are excluded from all loss and metric calculations by joint_valid
+  #   masking and flattening regardless of this setting.
+  #
+  # Default: 0.0
+  fill_value: 0.0
+
+
+# =============================================================================
+# LOGGING
+# =============================================================================
+# Controls MLflow and TensorBoard logging behaviour.
+# MLflow tracks experiments, metrics, and model artefacts.
+# TensorBoard provides live training curves.
+# =============================================================================
+
+logging:
+
+  # MLflow experiment name. All runs with this name are grouped together.
+  # REQUIRED
+  experiment_name: 'my_experiment'
+
+  # Human-readable name for this specific run within the experiment.
+  # Leave null to auto-generate a name.
+  run_name: null
+
+  # Free-text description logged with the run in MLflow.
+  description: null
+
+  # Key-value tags attached to the MLflow run for filtering and search.
+  # Example: {model: unet, dataset: sentinel2, version: v1}
+  tags: null
+
+  # Directory where TensorBoard event files are saved.
+  # Default: current directory ('.')
+  tb_log_dir: '.'
+
+  # Log training metrics every N steps.
+  # Set to 1 to log every step (verbose but complete).
+  train_log_every_n_steps: 10
+
+  # Run validation and log validation metrics every N training steps.
+  # Leave null (empty) to validate only at the end of each epoch.
+  # Set to an integer to validate mid-epoch (e.g. every 50 steps).
+  val_log_every_n_steps: null
+
+  # Save a model checkpoint every N epochs.
+  model_log_every_n_epochs: 1
+
+  # Metric to monitor for ModelCheckpoint and EarlyStopping.
+  # Must match one of the logged metric names, e.g.:
+  #   'val_loss', 'train_loss', 'val_iou', 'val_accuracy'
+  # REQUIRED
+  monitor: 'val_loss'
+
+  # Number of best checkpoints to keep. Older checkpoints are deleted.
+  # Set to -1 to keep all checkpoints.
+  save_top_k: 1
+
+  # Number of epochs to wait for improvement before stopping early.
+  # Training stops if the monitored metric does not improve for this many epochs.
+  patience: 10
+
+
+# =============================================================================
+# TESTING  (inference only — used by tester.py)
+# =============================================================================
+# These parameters are only used when running tester.py for inference.
+# They are ignored by trainer.py.
+# =============================================================================
+
+testing:
+
+  # REQUIRED for tester.py — path to the Lightning checkpoint (.ckpt) to load.
+  checkpoint_path: './checkpoints/best_model.ckpt'
+
+  # Batch size for inference. Typically 1 for georeferenced prediction saving.
+  # Default: 16
+  batch_size: 1
+
+  # Patch size for inference sampling. Should match training patch_size unless
+  # you are using a fully-convolutional model that handles arbitrary sizes.
+  # If omitted, falls back to training.patch_size.
+  patch_size: [256, 256]
+
+  # Maximum number of patches to run inference on.
+  # Useful for quick sanity checks. Remove or set large for full inference.
+  # Default: 1000
+  num_samples: 100
+
+  # CPU workers for the inference DataLoader.
+  # Default: 4
+  num_workers: 8
+
+  # Directory where predicted GeoTIFFs are saved.
+  # Default: './inference_outputs'
+  output_dir: './inference_outputs'
+
+  # Log inference progress every N steps.
+  # Default: 10
+  log_every_n_steps: 10
+
+  # PyTorch Lightning accelerator. 'auto' detects GPU/CPU automatically.
+  # Options: 'auto', 'cpu', 'gpu', 'tpu', 'mps'
+  # Default: 'auto'
+  accelerator: 'auto'
+
+  # PyTorch Lightning distributed strategy.
+  # Options: 'auto', 'ddp', 'ddp_spawn', 'deepspeed', etc.
+  # Default: 'auto'
+  strategy: 'auto'
+
+  # Random seed for the inference sampler.
+  # If omitted, falls back to training.seed.
+  seed: 42
+
+
+
+# Note on the distinction between replace_value and fill_value:
+# What each does:
+# replace_value (dataset-level, in process_sample): fills invalid pixels within that specific dataset after building its *_valid mask
+# fill_value (wrapper-level, in _shared_step): fills ALL channels at pixels joint-invalid across ALL datasets
+# The redundancy: Any pixel invalid in a given dataset is necessarily joint-invalid (since joint_valid is an AND). So the wrapper's fill_value will always overwrite replace_value at those same pixels. Within the training pipeline, the model never sees replace_value — it sees fill_value.
+
+# The only case where replace_value matters independently: using a dataset outside the training pipeline (standalone inspection, preprocessing, visualization). Inside the pipeline it's dead weight.

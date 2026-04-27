@@ -55,7 +55,7 @@ def create_multichannel_figure(
 
     # Plot inputs
     for i in range(num_input):
-        im = axs[i].imshow(input_data[i], cmap=cmap, vmin=0, vmax=1, interpolation="nearest")
+        im = axs[i].imshow(input_data[i], cmap=cmap, interpolation="nearest")
         axs[i].set_title(input_channel_names[i], fontsize=16)
         axs[i].axis('off')
         cb = fig.colorbar(im, ax=axs[i], orientation='vertical', pad=0.01)
@@ -64,7 +64,7 @@ def create_multichannel_figure(
     # Plot masks
     for i in range(num_mask):
         idx = num_input + i
-        im_mask = axs[idx].imshow(mask_data[i], cmap=cmap, vmin=0, vmax=1, interpolation="nearest")
+        im_mask = axs[idx].imshow(mask_data[i], cmap=cmap, interpolation="nearest")
         axs[idx].set_title(mask_channel_names[i], fontsize=16)
         axs[idx].axis('off')
         cb = fig.colorbar(im_mask, ax=axs[idx], orientation='vertical', pad=0.01)
@@ -73,7 +73,7 @@ def create_multichannel_figure(
     # Plot predictions
     for i in range(num_pred):
         idx = num_input + num_mask + i
-        im_pred = axs[idx].imshow(pred_data[i], cmap=cmap, vmin=0, vmax=1, interpolation="nearest")
+        im_pred = axs[idx].imshow(pred_data[i], cmap=cmap, interpolation="nearest")
         axs[idx].set_title(pred_channel_names[i], fontsize=16)
         axs[idx].axis('off')
         cb = fig.colorbar(im_pred, ax=axs[idx], orientation='vertical', pad=0.01)

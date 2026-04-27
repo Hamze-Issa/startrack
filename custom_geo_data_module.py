@@ -3,7 +3,7 @@ from torchgeo.samplers import RandomBatchGeoSampler, GridGeoSampler, RandomGeoSa
 import torch
 from typing import Optional, Tuple
 from torch.utils.data import DataLoader
-from torchgeo.datasets.splits import random_bbox_assignment
+from torchgeo.datasets.splits import random_bbox_assignment, random_bbox_splitting
 from torchgeo.datasets import stack_samples
 import typing
 from enum import auto
@@ -61,12 +61,16 @@ class CustomGeoDataModule(GeoDataModule):
         """Set up datasets and samplers."""        
         # Split the dataset
         generator = torch.Generator().manual_seed(self.seed)
-        self.train_dataset, self.val_dataset, self.test_dataset = random_bbox_assignment(
+        # self.train_dataset, self.val_dataset, self.test_dataset = random_bbox_assignment(
+        #     self.dataset, 
+        #     self.split_ratios,
+        #     generator
+        # )
+        self.train_dataset, self.val_dataset = random_bbox_splitting( # only training and validation for SAGE since the test set can come later
             self.dataset, 
             self.split_ratios,
-            generator
+            generator=generator
         )
-        CRS = auto()
         
         # Set up samplers
         if stage in ["fit"]:
@@ -141,7 +145,7 @@ class CustomGeoDataModule(GeoDataModule):
         )
     
     def on_after_batch_transfer(self, batch, dataloader_idx):
-        """Validate batch after transfer to device"""
+        """final nan to 0 convertion of the batch after transfer to device to prevent errors"""
         batch["image"] = torch.nan_to_num(batch["image"], nan=0.0)
         if "mask" in batch:
             batch["mask"] = torch.nan_to_num(batch["mask"], nan=0.0)

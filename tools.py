@@ -44,7 +44,7 @@ def get_joint_valid_mask(batch):
     joint_mask = batch[valid_keys[0]].bool()
     for k in valid_keys[1:]:
         joint_mask = joint_mask & batch[k].bool()
-    return joint_mask
+    return joint_mask.all(dim=1, keepdim=True)
 
 def encode_time_to_sample(sample, index):
     start_ts = datetime.fromtimestamp(index.mint, tz=timezone.utc)
